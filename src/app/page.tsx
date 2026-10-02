@@ -1,71 +1,170 @@
 "use client";
 import { useState } from "react";
-import { createClient } from "genlayer-js";
+import { createClient, createAccount } from "genlayer-js";
 
 const CONTRACT_ADDRESS = "0xf6cf84E563014e1E3434e9812303A0c23cE159aA";
-const client = createClient({ endpoint: "http://localhost:8080" }); 
+const defaultAccount = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const account = createAccount(defaultAccount);
+const client = createClient({ 
+  endpoint: "http://localhost:8080",
+  account: account 
+}); 
 
-export default function ConsentUI() {
-  const [purposeId, setPurposeId] = useState("data_analytics_v1");
-  const [description, setDescription] = useState("We use your data to improve our services.");
-  const [policyUrl, setPolicyUrl] = useState("https://raw.githubusercontent.com/adgm-regulations/mock/main/fsra_guidance.txt");
-  const [status, setStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+// Helper to format default address for the UI
+const defaultAddress = account.address;
 
-  const registerPurpose = async (e: React.FormEvent) => {
+export default function ConsentDashboard() {
+  const [loading, setLoading] = useState<string | null>(null);
+  
+  // States: Register Purpose
+  const [regPurposeId, setRegPurposeId] = useState("data_analytics_v1");
+  const [regDesc, setRegDesc] = useState("We use your data to improve our services.");
+  const [regUrl, setRegUrl] = useState("https://raw.githubusercontent.com/adgm-regulations/mock/main/fsra_guidance.txt");
+  const [regResult, setRegResult] = useState("");
+
+  // States: Manage Consent
+  const [manageController, setManageController] = useState(defaultAddress);
+  const [managePurposeId, setManagePurposeId] = useState("data_analytics_v1");
+  const [manageResult, setManageResult] = useState("");
+
+  // States: Query State
+  const [querySubject, setQuerySubject] = useState(defaultAddress);
+  const [queryController, setQueryController] = useState(defaultAddress);
+  const [queryPurposeId, setQueryPurposeId] = useState("data_analytics_v1");
+  const [queryResult, setQueryResult] = useState("");
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setStatus("AI Validators are auditing the policy URL...");
+    setLoading("register");
+    setRegResult("AI Validators auditing terms...");
     try {
-      const result = await client.writeContract({
+      const res = await client.writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         functionName: "register_purpose",
-        args: [purposeId, description, policyUrl],
+        args: [regPurposeId, regDesc, regUrl],
         value: BigInt(0),
       });
-      setStatus(`Verdict: ${result}`);
+      setRegResult(`Success! Verdict: ${res}`);
     } catch (err: any) {
-      setStatus(`Failed: ${err.message || "AI rejected the terms as DECEPTIVE."}`);
+      setRegResult(`Failed: ${err.message}`);
     }
-    setLoading(false);
+    setLoading(null);
+  };
+
+  const handleConsent = async (action: "grant" | "revoke") => {
+    setLoading(action);
+    setManageResult(`Executing ${action}...`);
+    try {
+      await client.writeContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        functionName: action,
+        args: [manageController, managePurposeId],
+        value: BigInt(0),
+      });
+      setManageResult(`Successfully executed: ${action.toUpperCase()}`);
+    } catch (err: any) {
+      setManageResult(`Failed: ${err.message}`);
+    }
+    setLoading(null);
+  };
+
+  const handleQuery = async (type: "consent" | "purpose") => {
+    setLoading(`query_${type}`);
+    setQueryResult("Fetching from GenVM...");
+    try {
+      const functionName = type === "consent" ? "get_consent" : "get_purpose";
+      const args = type === "consent" 
+        ? [querySubject, queryController, queryPurposeId] 
+        : [queryController, queryPurposeId];
+
+      const res = await client.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        functionName: functionName,
+        args: args,
+      });
+      
+      // Format the returned JSON string nicely
+      try {
+        const parsed = JSON.parse(res as string);
+        setQueryResult(JSON.stringify(parsed, null, 2));
+      } catch {
+        setQueryResult(String(res));
+      }
+    } catch (err: any) {
+      setQueryResult(`Failed: ${err.message}`);
+    }
+    setLoading(null);
   };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-200 p-8 font-sans">
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-8">
         <header className="border-b border-neutral-800 pb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-white">AI-Audited Consent Registry</h1>
-          <p className="text-neutral-400 mt-2">GenVM verifies privacy policies before allowing data collection.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">GenLayer Consent Registry</h1>
+          <p className="text-neutral-400 mt-2">Fully testable WebUI for the Subjective AI Data Shield.</p>
+          <div className="mt-4 p-3 bg-neutral-900 border border-neutral-800 rounded text-xs font-mono text-neutral-500">
+            Connected Account (Signer): {defaultAddress}
+          </div>
         </header>
 
-        <form onSubmit={registerPurpose} className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
-          <h2 className="text-xl font-semibold text-white">Register Data Purpose</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Purpose ID</label>
-            <input type="text" value={purposeId} onChange={(e) => setPurposeId(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500" required />
+          {/* 1. REGISTER PURPOSE CARD */}
+          <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
+            <h2 className="text-xl font-semibold text-white">1. Register Purpose (Controller)</h2>
+            <form onSubmit={handleRegister} className="space-y-3">
+              <input type="text" value={regPurposeId} onChange={(e) => setRegPurposeId(e.target.value)} placeholder="Purpose ID" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" required />
+              <textarea value={regDesc} onChange={(e) => setRegDesc(e.target.value)} placeholder="Description" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm h-16" required />
+              <input type="url" value={regUrl} onChange={(e) => setRegUrl(e.target.value)} placeholder="Policy URL" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" required />
+              <button type="submit" disabled={loading !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50">
+                {loading === "register" ? "Auditing..." : "Audit & Register"}
+              </button>
+            </form>
+            {regResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-green-400 break-words">{regResult}</div>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Plain-English Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 h-20" required />
+          {/* 2. MANAGE CONSENT CARD */}
+          <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
+            <h2 className="text-xl font-semibold text-white">2. Manage Consent (Subject)</h2>
+            <div className="space-y-3">
+              <input type="text" value={manageController} onChange={(e) => setManageController(e.target.value)} placeholder="Controller Address" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm font-mono" />
+              <input type="text" value={managePurposeId} onChange={(e) => setManagePurposeId(e.target.value)} placeholder="Purpose ID" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" />
+              <div className="flex space-x-3">
+                <button onClick={() => handleConsent("grant")} disabled={loading !== null} className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded text-sm disabled:opacity-50">
+                  {loading === "grant" ? "Executing..." : "Grant"}
+                </button>
+                <button onClick={() => handleConsent("revoke")} disabled={loading !== null} className="flex-1 bg-red-700 hover:bg-red-600 text-white py-2 rounded text-sm disabled:opacity-50">
+                  {loading === "revoke" ? "Executing..." : "Revoke"}
+                </button>
+              </div>
+            </div>
+            {manageResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-neutral-300 break-words">{manageResult}</div>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Legal Privacy Policy URL (HTTPS)</label>
-            <input type="url" value={policyUrl} onChange={(e) => setPolicyUrl(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500" required />
+          {/* 3. QUERY STATE CARD (Spans full width) */}
+          <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4 md:col-span-2">
+            <h2 className="text-xl font-semibold text-white">3. Query On-Chain State</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input type="text" value={querySubject} onChange={(e) => setQuerySubject(e.target.value)} placeholder="Subject Address (For Consent)" className="bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm font-mono" />
+              <input type="text" value={queryController} onChange={(e) => setQueryController(e.target.value)} placeholder="Controller Address" className="bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm font-mono" />
+              <input type="text" value={queryPurposeId} onChange={(e) => setQueryPurposeId(e.target.value)} placeholder="Purpose ID" className="bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" />
+            </div>
+            <div className="flex space-x-3">
+              <button onClick={() => handleQuery("consent")} disabled={loading !== null} className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2 rounded text-sm disabled:opacity-50">
+                Get Consent Record
+              </button>
+              <button onClick={() => handleQuery("purpose")} disabled={loading !== null} className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2 rounded text-sm disabled:opacity-50">
+                Get Purpose Details
+              </button>
+            </div>
+            {queryResult && (
+              <pre className="text-xs font-mono p-4 bg-black rounded border border-neutral-800 text-emerald-400 overflow-x-auto">
+                {queryResult}
+              </pre>
+            )}
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50">
-            {loading ? "Executing Multi-LLM Consensus..." : "Audit & Register Purpose"}
-          </button>
-        </form>
-
-        {status && (
-          <div className={`p-4 rounded-lg border ${status.includes("TRANSPARENT") ? "bg-green-950/30 border-green-900 text-green-400" : status.includes("Failed") ? "bg-red-950/30 border-red-900 text-red-400" : "bg-blue-950/30 border-blue-900 text-blue-400"}`}>
-            <p className="font-mono text-sm">{status}</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
