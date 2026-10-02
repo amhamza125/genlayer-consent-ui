@@ -10,7 +10,6 @@ const client = createClient({
   account: account 
 }); 
 
-// Helper to format default address for the UI
 const defaultAddress = account.address;
 
 export default function ConsentDashboard() {
@@ -22,14 +21,14 @@ export default function ConsentDashboard() {
   const [regUrl, setRegUrl] = useState("https://raw.githubusercontent.com/adgm-regulations/mock/main/fsra_guidance.txt");
   const [regResult, setRegResult] = useState("");
 
-  // States: Manage Consent
-  const [manageController, setManageController] = useState(defaultAddress);
+  // States: Manage Consent (Explicit <string> added to fix type mismatch)
+  const [manageController, setManageController] = useState<string>(defaultAddress);
   const [managePurposeId, setManagePurposeId] = useState("data_analytics_v1");
   const [manageResult, setManageResult] = useState("");
 
-  // States: Query State
-  const [querySubject, setQuerySubject] = useState(defaultAddress);
-  const [queryController, setQueryController] = useState(defaultAddress);
+  // States: Query State (Explicit <string> added to fix type mismatch)
+  const [querySubject, setQuerySubject] = useState<string>(defaultAddress);
+  const [queryController, setQueryController] = useState<string>(defaultAddress);
   const [queryPurposeId, setQueryPurposeId] = useState("data_analytics_v1");
   const [queryResult, setQueryResult] = useState("");
 
@@ -83,7 +82,6 @@ export default function ConsentDashboard() {
         args: args,
       });
       
-      // Format the returned JSON string nicely
       try {
         const parsed = JSON.parse(res as string);
         setQueryResult(JSON.stringify(parsed, null, 2));
@@ -109,7 +107,6 @@ export default function ConsentDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
-          {/* 1. REGISTER PURPOSE CARD */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
             <h2 className="text-xl font-semibold text-white">1. Register Purpose (Controller)</h2>
             <form onSubmit={handleRegister} className="space-y-3">
@@ -123,7 +120,6 @@ export default function ConsentDashboard() {
             {regResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-green-400 break-words">{regResult}</div>}
           </div>
 
-          {/* 2. MANAGE CONSENT CARD */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
             <h2 className="text-xl font-semibold text-white">2. Manage Consent (Subject)</h2>
             <div className="space-y-3">
@@ -141,7 +137,6 @@ export default function ConsentDashboard() {
             {manageResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-neutral-300 break-words">{manageResult}</div>}
           </div>
 
-          {/* 3. QUERY STATE CARD (Spans full width) */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4 md:col-span-2">
             <h2 className="text-xl font-semibold text-white">3. Query On-Chain State</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
