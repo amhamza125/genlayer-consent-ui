@@ -2,9 +2,7 @@
 import { useState } from "react";
 import { createClient } from "genlayer-js";
 
-// Your deployed Intelligent Contract address
 const CONTRACT_ADDRESS = "0xf6cf84E563014e1E3434e9812303A0c23cE159aA";
-// Note: Replace with your actual GenLayer Studio endpoint if not using localhost
 const client = createClient({ endpoint: "http://localhost:8080" }); 
 
 export default function ConsentUI() {
@@ -20,9 +18,10 @@ export default function ConsentUI() {
     setStatus("AI Validators are auditing the policy URL...");
     try {
       const result = await client.writeContract({
-        address: CONTRACT_ADDRESS,
+        address: CONTRACT_ADDRESS as `0x${string}`,
         functionName: "register_purpose",
         args: [purposeId, description, policyUrl],
+        value: 0n, // <-- The required parameter Vercel was asking for
       });
       setStatus(`Verdict: ${result}`);
     } catch (err: any) {
