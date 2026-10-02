@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import { createClient, studionet } from "genlayer-js";
+import { createClient, createAccount } from "genlayer-js";
 
 export default function ConsentDashboard() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState<string | null>(null);
   
-  // NOTE: Paste your new Studio deployment address here in the browser UI!
+  // NOTE: Paste your Public Studio deployment address here in the browser UI!
   const [contractAddress, setContractAddress] = useState<string>("0xf6cf84E563014e1E3434e9812303A0c23cE159aA");
 
   const [regPurposeId, setRegPurposeId] = useState("data_analytics_v1");
@@ -27,23 +27,21 @@ export default function ConsentDashboard() {
   const connectWallet = async () => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
       try {
+        // 1. Connect to MetaMask to authenticate the user's browser
         const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
         const address = accounts[0];
         
-        // 1. Initialize client with official StudioNet preset and MetaMask provider
+        // 2. Initialize a frictionless session client pointed at the public GenLayer Studio
+        const sessionSigner = createAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
         const glClient = createClient({ 
-          chain: studionet,
-          account: address,
-          provider: (window as any).ethereum 
+          endpoint: "https://studio.genlayer.com/api",
+          account: sessionSigner 
         });
-        
-        // 2. Automatically sync MetaMask with the GenLayer network
-        await glClient.connect('studionet');
         
         setWalletAddress(address);
         setClient(glClient);
         
-        // Auto-fill inputs for convenience
+        // Auto-fill the UI inputs with the connected MetaMask address
         setManageController(address);
         setQuerySubject(address);
         setQueryController(address);
@@ -58,7 +56,7 @@ export default function ConsentDashboard() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading("register");
-    setRegResult("Please confirm in MetaMask. AI Validators auditing...");
+    setRegResult("AI Validators auditing terms on GenLayer StudioNet...");
     try {
       const res = await client.writeContract({
         address: contractAddress as `0x${string}`,
@@ -75,7 +73,7 @@ export default function ConsentDashboard() {
 
   const handleConsent = async (action: "grant" | "revoke") => {
     setLoading(action);
-    setManageResult(`Please confirm in MetaMask. Executing ${action}...`);
+    setManageResult(`Executing ${action} on GenLayer StudioNet...`);
     try {
       await client.writeContract({
         address: contractAddress as `0x${string}`,
@@ -156,7 +154,7 @@ export default function ConsentDashboard() {
               <textarea value={regDesc} onChange={(e) => setRegDesc(e.target.value)} placeholder="Description" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm h-16" required />
               <input type="url" value={regUrl} onChange={(e) => setRegUrl(e.target.value)} placeholder="Policy URL" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" required />
               <button type="submit" disabled={loading !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50">
-                {loading === "register" ? "Confirm in Wallet..." : "Audit & Register"}
+                {loading === "register" ? "Auditing via GenVM..." : "Audit & Register"}
               </button>
             </form>
             {regResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-green-400 break-words">{regResult}</div>}
