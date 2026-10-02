@@ -21,7 +21,7 @@ export default function ConsentUI() {
         address: CONTRACT_ADDRESS as `0x${string}`,
         functionName: "register_purpose",
         args: [purposeId, description, policyUrl],
-        value: 0n, // <-- The required parameter Vercel was asking for
+        value: BigInt(0),
       });
       setStatus(`Verdict: ${result}`);
     } catch (err: any) {
