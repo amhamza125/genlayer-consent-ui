@@ -1,27 +1,24 @@
 "use client";
 import { useState } from "react";
-import { createClient, createAccount } from "genlayer-js";
+import { createClient, studionet } from "genlayer-js";
 
 export default function ConsentDashboard() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState<string | null>(null);
   
-  // NOTE: You must update this with your PUBLIC StudioNet deployment address!
+  // NOTE: Paste your new Studio deployment address here in the browser UI!
   const [contractAddress, setContractAddress] = useState<string>("0xf6cf84E563014e1E3434e9812303A0c23cE159aA");
 
-  // States: Register Purpose
   const [regPurposeId, setRegPurposeId] = useState("data_analytics_v1");
   const [regDesc, setRegDesc] = useState("We use your data to improve our services.");
   const [regUrl, setRegUrl] = useState("https://raw.githubusercontent.com/adgm-regulations/mock/main/fsra_guidance.txt");
   const [regResult, setRegResult] = useState("");
 
-  // States: Manage Consent
   const [manageController, setManageController] = useState<string>("");
   const [managePurposeId, setManagePurposeId] = useState("data_analytics_v1");
   const [manageResult, setManageResult] = useState("");
 
-  // States: Query State
   const [querySubject, setQuerySubject] = useState<string>("");
   const [queryController, setQueryController] = useState<string>("");
   const [queryPurposeId, setQueryPurposeId] = useState("data_analytics_v1");
@@ -32,17 +29,21 @@ export default function ConsentDashboard() {
       try {
         const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
         const address = accounts[0];
-        setWalletAddress(address);
         
-        // Initialize GenLayer pointing to the PUBLIC Testnet.
-        // We inject a session signer to bypass complex Wagmi TS configuration for the demo.
-        const sessionSigner = createAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+        // 1. Initialize client with official StudioNet preset and MetaMask provider
         const glClient = createClient({ 
-          endpoint: "https://studionet.genlayer.com",
-          account: sessionSigner 
+          chain: studionet,
+          account: address,
+          provider: (window as any).ethereum 
         });
         
+        // 2. Automatically sync MetaMask with the GenLayer network
+        await glClient.connect('studionet');
+        
+        setWalletAddress(address);
         setClient(glClient);
+        
+        // Auto-fill inputs for convenience
         setManageController(address);
         setQuerySubject(address);
         setQueryController(address);
@@ -57,7 +58,7 @@ export default function ConsentDashboard() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading("register");
-    setRegResult("AI Validators auditing terms on Public Testnet...");
+    setRegResult("Please confirm in MetaMask. AI Validators auditing...");
     try {
       const res = await client.writeContract({
         address: contractAddress as `0x${string}`,
@@ -74,7 +75,7 @@ export default function ConsentDashboard() {
 
   const handleConsent = async (action: "grant" | "revoke") => {
     setLoading(action);
-    setManageResult(`Executing ${action}...`);
+    setManageResult(`Please confirm in MetaMask. Executing ${action}...`);
     try {
       await client.writeContract({
         address: contractAddress as `0x${string}`,
@@ -95,11 +96,13 @@ export default function ConsentDashboard() {
     try {
       const functionName = type === "consent" ? "get_consent" : "get_purpose";
       const args = type === "consent" ? [querySubject, queryController, queryPurposeId] : [queryController, queryPurposeId];
+      
       const res = await client.readContract({
         address: contractAddress as `0x${string}`,
         functionName: functionName,
         args: args,
       });
+      
       try {
         setQueryResult(JSON.stringify(JSON.parse(res as string), null, 2));
       } catch {
@@ -111,13 +114,12 @@ export default function ConsentDashboard() {
     setLoading(null);
   };
 
-  // --- CONNECT WALLET LANDING SCREEN ---
   if (!walletAddress) {
     return (
       <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center text-white p-6 font-sans">
         <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center shadow-2xl">
           <h1 className="text-3xl font-bold mb-4 tracking-tight">AI Data Shield</h1>
-          <p className="text-neutral-400 mb-8">Connect your Web3 wallet to interact with the Autonomous Consent Registry on the GenLayer Testnet.</p>
+          <p className="text-neutral-400 mb-8">Connect your Web3 wallet to interact with the Autonomous Consent Registry on GenLayer.</p>
           <button onClick={connectWallet} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25">
             Connect MetaMask
           </button>
@@ -126,14 +128,13 @@ export default function ConsentDashboard() {
     );
   }
 
-  // --- MAIN DASHBOARD ---
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-200 p-8 font-sans">
       <div className="max-w-4xl mx-auto space-y-8">
         <header className="border-b border-neutral-800 pb-6 flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white">Consent Registry</h1>
-            <p className="text-neutral-400 mt-2">Public StudioNet Test Environment</p>
+            <p className="text-neutral-400 mt-2">Public StudioNet Environment</p>
           </div>
           <div className="text-right">
             <div className="inline-block p-2 px-4 bg-blue-900/30 border border-blue-900 rounded-full text-xs font-mono text-blue-400">
@@ -142,14 +143,12 @@ export default function ConsentDashboard() {
           </div>
         </header>
 
-        {/* Contract Address Configurator */}
         <div className="bg-amber-950/30 border border-amber-900 p-4 rounded-xl flex items-center space-x-4">
           <label className="text-sm font-semibold text-amber-500 whitespace-nowrap">Active Contract:</label>
           <input type="text" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} className="w-full bg-black/50 border border-amber-900/50 rounded px-3 py-1.5 text-sm font-mono text-amber-200 focus:outline-none focus:border-amber-500" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* 1. REGISTER */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
             <h2 className="text-xl font-semibold text-white">1. Register Purpose</h2>
             <form onSubmit={handleRegister} className="space-y-3">
@@ -157,13 +156,12 @@ export default function ConsentDashboard() {
               <textarea value={regDesc} onChange={(e) => setRegDesc(e.target.value)} placeholder="Description" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm h-16" required />
               <input type="url" value={regUrl} onChange={(e) => setRegUrl(e.target.value)} placeholder="Policy URL" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" required />
               <button type="submit" disabled={loading !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50">
-                {loading === "register" ? "Auditing via GenVM..." : "Audit & Register"}
+                {loading === "register" ? "Confirm in Wallet..." : "Audit & Register"}
               </button>
             </form>
             {regResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-green-400 break-words">{regResult}</div>}
           </div>
 
-          {/* 2. CONSENT */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4">
             <h2 className="text-xl font-semibold text-white">2. Manage Consent</h2>
             <div className="space-y-3">
@@ -181,7 +179,6 @@ export default function ConsentDashboard() {
             {manageResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-neutral-300 break-words">{manageResult}</div>}
           </div>
 
-          {/* 3. QUERY */}
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 space-y-4 md:col-span-2">
             <h2 className="text-xl font-semibold text-white">3. Query On-Chain State</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -190,7 +187,7 @@ export default function ConsentDashboard() {
               <input type="text" value={queryPurposeId} onChange={(e) => setQueryPurposeId(e.target.value)} placeholder="Purpose ID" className="bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" />
             </div>
             <div className="flex space-x-3">
-              <button onClick={() => handleQuery("consent")} disabled={loading !== null} className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2 rounded text-sm disabled:opacity-50">Get Consent Record</button>
+              <button onClick={() => handleQuery("consent")} disabled={loading !== null} className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2 rounded text-sm disabled:opacity-50">Get Consent</button>
               <button onClick={() => handleQuery("purpose")} disabled={loading !== null} className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2 rounded text-sm disabled:opacity-50">Get Purpose Details</button>
             </div>
             {queryResult && (
