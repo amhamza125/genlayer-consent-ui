@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { createClient, createAccount } from "genlayer-js";
+import { createClient } from "genlayer-js";
 
 export default function ConsentDashboard() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -27,21 +27,20 @@ export default function ConsentDashboard() {
   const connectWallet = async () => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
       try {
-        // 1. Connect to MetaMask to authenticate the user's browser
         const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
         const address = accounts[0];
         
-        // 2. Initialize a frictionless session client pointed at the public GenLayer Studio
-        const sessionSigner = createAccount("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+        // 1. Initialize client pointed at public Studio
+        // 2. Pass the MetaMask provider so it FORCES wallet popups for transactions!
         const glClient = createClient({ 
           endpoint: "https://studio.genlayer.com/api",
-          account: sessionSigner 
+          provider: (window as any).ethereum,
+          account: address 
         });
         
         setWalletAddress(address);
         setClient(glClient);
         
-        // Auto-fill the UI inputs with the connected MetaMask address
         setManageController(address);
         setQuerySubject(address);
         setQueryController(address);
@@ -56,7 +55,7 @@ export default function ConsentDashboard() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading("register");
-    setRegResult("AI Validators auditing terms on GenLayer StudioNet...");
+    setRegResult("Please confirm in MetaMask. AI Validators auditing...");
     try {
       const res = await client.writeContract({
         address: contractAddress as `0x${string}`,
@@ -73,9 +72,9 @@ export default function ConsentDashboard() {
 
   const handleConsent = async (action: "grant" | "revoke") => {
     setLoading(action);
-    setManageResult(`Executing ${action} on GenLayer StudioNet...`);
+    setManageResult(`Please confirm in MetaMask. Executing ${action}...`);
     try {
-      await client.writeContract({
+      const res = await client.writeContract({
         address: contractAddress as `0x${string}`,
         functionName: action,
         args: [manageController, managePurposeId],
@@ -154,7 +153,7 @@ export default function ConsentDashboard() {
               <textarea value={regDesc} onChange={(e) => setRegDesc(e.target.value)} placeholder="Description" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm h-16" required />
               <input type="url" value={regUrl} onChange={(e) => setRegUrl(e.target.value)} placeholder="Policy URL" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" required />
               <button type="submit" disabled={loading !== null} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50">
-                {loading === "register" ? "Auditing via GenVM..." : "Audit & Register"}
+                {loading === "register" ? "Confirm in Wallet..." : "Audit & Register"}
               </button>
             </form>
             {regResult && <div className="text-xs font-mono p-3 bg-neutral-950 rounded border border-neutral-800 text-green-400 break-words">{regResult}</div>}
@@ -167,10 +166,10 @@ export default function ConsentDashboard() {
               <input type="text" value={managePurposeId} onChange={(e) => setManagePurposeId(e.target.value)} placeholder="Purpose ID" className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm" />
               <div className="flex space-x-3">
                 <button onClick={() => handleConsent("grant")} disabled={loading !== null} className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded text-sm disabled:opacity-50">
-                  {loading === "grant" ? "Executing..." : "Grant"}
+                  {loading === "grant" ? "Confirm in Wallet..." : "Grant"}
                 </button>
                 <button onClick={() => handleConsent("revoke")} disabled={loading !== null} className="flex-1 bg-red-700 hover:bg-red-600 text-white py-2 rounded text-sm disabled:opacity-50">
-                  {loading === "revoke" ? "Executing..." : "Revoke"}
+                  {loading === "revoke" ? "Confirm in Wallet..." : "Revoke"}
                 </button>
               </div>
             </div>
